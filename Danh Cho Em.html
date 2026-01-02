@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dành cho embe 💖</title> 
+
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet"> 
+
+  <style>
+    body{
+      margin:0;
+      font-family:Quicksand;
+      background:#ffdfe6;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      min-height:100vh;
+      color:#b3295a
+    }
+    .card{
+      background:#ffe6ec;
+      border-radius:18px;
+      padding:24px;
+      max-width:420px;
+      width:100%;
+      text-align:center;
+      box-shadow:0 10px 30px rgba(0,0,0,.08);
+      transition:opacity .8s ease
+    }
+    h1{color:#ff6b9a}
+    video{
+      width:100%;
+      border-radius:12px;
+      margin-top:12px
+    }
+    button{
+      margin-top:14px;
+      padding:10px 18px;
+      border-radius:10px;
+      border:none;
+      background:#ff6b9a;
+      color:#fff;
+      font-weight:700;
+      font-size:16px;
+      cursor:pointer
+    }
+    .status{
+      margin-top:10px;
+      font-size:14px;
+      opacity:.85
+    }
+  </style>
+</head> 
+
+<body> 
+
+<div class="card" id="card">
+  <h1>📷 Nhìn vào camera nhé</h1>
+  <p>Nhận diện khuôn mặt để mở bức thư bí mật 💌</p>
+  <video id="video" autoplay muted playsinline></video>
+  <div class="status" id="status">Chưa bắt đầu</div>
+  <button id="start">Bắt đầu nhận diện</button>
+</div> 
+
+<!-- face-api -->
+<script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script> 
+
+<script>
+const video = document.getElementById('video');
+const btn   = document.getElementById('start');
+const card  = document.getElementById('card');
+const statusText = document.getElementById('status'); 
+
+// 👉 ẢNH MẪU (đặt cùng thư mục index.html)
+const AUTH_IMAGE = '1.jpg';
+let faceMatcher; 
+
+// bật camera
+async function startCamera(){
+  const stream = await navigator.mediaDevices.getUserMedia({ video:true });
+  video.srcObject = stream; 
+
+  await new Promise(resolve => {
+    video.onloadedmetadata = () => {
+      video.play();
+      resolve();
+    };
+  });
+} 
+
+// load model (đúng link)
+async function loadModels(){
+  statusText.innerText = '⏳ Đang xác nhận...'; 
+
+  const MODEL_URL =
+    'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'; 
+
+  await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+  await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+  await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+} 
+
+// load khuôn mặt được phép
+async function loadAuthorizedFace(){
+  statusText.innerText = '📸 Đang phân tích...'; 
+
+  const img = await faceapi.fetchImage(AUTH_IMAGE); 
+
+  const detection = await faceapi
+    .detectSingleFace(
+      img,
+      new faceapi.TinyFaceDetectorOptions({
+        inputSize: 224,
+        scoreThreshold: 0.5
+      })
+    )
+    .withFaceLandmarks()
+    .withFaceDescriptor(); 
+
+  if(!detection){
+    alert('❌ Không nhận diện được khuôn mặt trong ảnh 1.jpg');
+    throw new Error('No face in auth image');
+  } 
+
+  const labeled = new faceapi.LabeledFaceDescriptors(
+    'my-love',
+    [detection.descriptor]
+  ); 
+
+  // 👉 tăng độ dễ nhận
+  faceMatcher = new faceapi.FaceMatcher(labeled, 0.6);
+} 
+
+// bắt đầu
+btn.onclick = async ()=>{
+  btn.disabled = true;
+  btn.innerText = 'Đang nhận diện...'; 
+
+  try{
+    await loadModels();
+    await loadAuthorizedFace();
+    await startCamera(); 
+
+    statusText.innerText = '🙂 Đang quét khuôn mặt...'; 
+
+    const interval = setInterval(async ()=>{
+      const result = await faceapi
+        .detectSingleFace(
+          video,
+          new faceapi.TinyFaceDetectorOptions({
+            inputSize: 224,
+            scoreThreshold: 0.5
+          })
+        )
+        .withFaceLandmarks()
+        .withFaceDescriptor(); 
+
+      if(result && faceMatcher){
+        const match = faceMatcher.findBestMatch(result.descriptor);
+        console.log(match.toString()); 
+
+        if(match.label === 'my-love'){
+          clearInterval(interval);
+          unlock();
+        }
+      }
+    }, 700); 
+
+  }catch(e){
+    alert('Có lỗi xảy ra, mở Console để xem chi tiết');
+    console.error(e);
+  }
+}; 
+
+// mở khóa 💖
+function unlock(){
+  statusText.innerText = '💖 Đã nhận diện thành công'; 
+
+  card.style.opacity = 0;
+  setTimeout(()=>{
+    card.innerHTML = `
+      <h1>💌 Chỉ dành cho riêng bạn</h1>
+      <p style="font-size:18px;line-height:1.6">
+        Từ khoảnh khắc đầu tiên nhìn thấy bạn,<br>
+        mình đã biết trái tim này không thể lạc mất rồi 💖<br><br>
+        <strong>Mình thích bạn rất nhiều!</strong>
+      </p>
+      <audio autoplay loop>
+        <source src="https://files.catbox.moe/4rk9su.mp3" type="audio/mpeg">
+      </audio>
+    `;
+    card.style.opacity = 1;
+  },800);
+}
+</script> 
+
+</body>
+</html>
